@@ -90,7 +90,7 @@ export function buildCalendar() {
       start: profile.weighTime,
       durationMin: 5,
       title: '⚖️ Pesée de la semaine',
-      description: 'Le matin, à jeun, avant le petit-déjeuner. Note ton poids dans Élan 10K.',
+      description: 'Le matin, à jeun, avant le petit-déjeuner. Note ton poids dans Élan 10K, et importe tes séances Apple Watch (Santé → Exporter).',
       alarmMin: 0,
     }));
   }

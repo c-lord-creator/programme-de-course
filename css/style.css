@@ -521,9 +521,10 @@ select {
 .copy-list span { font-size: 13px; color: var(--muted); }
 code {
   font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 14px; background: var(--surface-2);
-  border-radius: 8px; padding: 6px 8px; word-break: break-all; cursor: pointer; color: var(--ink);
+  border-radius: 8px; padding: 6px 8px; overflow-wrap: anywhere; cursor: pointer; color: var(--ink);
 }
-.big-code { display: block; font-size: 18px; text-align: center; padding: 14px; }
+p code { padding: 1px 5px; white-space: nowrap; cursor: auto; }
+.big-code { display: block; font-size: 18px; text-align: center; padding: 14px; word-break: break-all; }
 
 /* Journal */
 .records { list-style: none; margin: 0; padding: 0; }
@@ -579,3 +580,15 @@ code {
 details summary.link { padding: 2px 0; }
 details[open] > summary.link { margin-bottom: 10px; }
 .btn:disabled { opacity: 0.6; }
+
+/* Apple Santé */
+.health-logo {
+  width: 36px; height: 36px; flex: none; border-radius: 10px; background: linear-gradient(135deg, #2b2b2e, #000);
+  color: #fff; display: inline-grid; place-items: center; font-size: 19px;
+}
+.health-logo.small { width: 22px; height: 22px; font-size: 12px; border-radius: 6px; vertical-align: -3px; }
+.strava-bar .health-logo { width: 28px; height: 28px; font-size: 15px; border-radius: 8px; }
+a.strava-bar .btn { width: auto; padding: 0 12px; font-size: 14px; display: inline-flex; }
+.strava-dot.apple { background: #111; font-size: 11px; }
+.warn { background: color-mix(in srgb, var(--yellow) 22%, var(--surface)); }
+.bullets.left { text-align: left; align-self: stretch; }
