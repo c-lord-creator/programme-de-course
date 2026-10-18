@@ -1,7 +1,7 @@
 // Génère un fichier .ics (Calendrier Apple, Google Agenda…) avec les séances et les pesées.
 
-import { PROGRAM, TYPE_INFO } from './program.js';
-import { getState, sessionDate, weekStart, addDays, toISO } from './store.js';
+import { TYPE_INFO } from './program.js';
+import { getState, program, planOf, sessionDate, weekStart, addDays, toISO } from './store.js';
 
 function escapeText(text) {
   return String(text).replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
@@ -63,28 +63,29 @@ function event({ uid, date, start, durationMin, title, description, alarmMin }) 
 }
 
 export function buildCalendar() {
-  const { profile } = getState();
+  const { profile, cycle } = getState();
+  const plan = planOf();
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Elan 10K//FR', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:Élan 10K'];
 
-  for (const w of PROGRAM) {
+  for (const w of program()) {
     for (const s of w.sessions) {
       const info = TYPE_INFO[s.type];
       const stepsText = s.steps.length
         ? s.steps.map((st) => `• ${st.label} : ${st.detail}`).join('\n')
         : 'Ouvre l\'app pour lancer la séance guidée avec minuteur.';
       lines.push(...event({
-        uid: s.id,
+        uid: s.id.replace(':', '-'),
         date: sessionDate(s),
         start: profile.sessionTime,
         durationMin: s.durationMin,
         title: `${info.emoji} ${s.title}`,
-        description: `Semaine ${w.week}/12 · ${w.theme}\n${s.summary}\n\n${stepsText}\n\nPense à cocher ta séance dans Élan 10K !`,
+        description: `${plan.name} · semaine ${w.week}/12 · ${w.theme}\n${s.summary}\n\n${stepsText}\n\nPense à cocher ta séance dans Élan 10K !`,
         alarmMin: profile.alarmMinutes,
       }));
     }
     const weighDate = toISO(addDays(weekStart(w.week), profile.weighDay - 1));
     lines.push(...event({
-      uid: `pesee-w${w.week}`,
+      uid: `${cycle.id}-pesee-w${w.week}`,
       date: weighDate,
       start: profile.weighTime,
       durationMin: 5,

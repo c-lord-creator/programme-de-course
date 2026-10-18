@@ -1,7 +1,4 @@
-// Programme 12 semaines : de 5 km à un premier 10 km.
-// 4 séances par semaine : footing, fractionné, renforcement, sortie longue.
-
-export const SLOT_TYPES = ['ef', 'frac', 'renfo', 'long'];
+// Programmes de 12 semaines, 4 séances par semaine : footing, fractionné, renforcement, sortie longue.
 
 export const TYPE_INFO = {
   ef: { label: 'Footing', emoji: '🏃', color: 'teal' },
@@ -14,32 +11,78 @@ export const TYPE_INFO = {
 export const PACE_GUIDE = [
   { name: 'Endurance fondamentale', text: 'Allure facile : tu peux tenir une conversation en courant. C\'est la base de tout, ne cours pas trop vite !' },
   { name: 'Allure 10 km', text: 'Rapide mais tenable : tu ne peux dire que quelques mots. C\'est l\'allure visée le jour J.' },
-  { name: 'Rapide', text: 'Plus vite que l\'allure 10 km, sur des efforts courts (1 à 2 min). Soutenu, sans sprinter.' },
+  { name: 'Rapide', text: 'Plus vite que l\'allure 10 km, sur des efforts courts (1 à 3 min). Soutenu, sans sprinter.' },
   { name: 'Trot', text: 'Récupération en trottinant très lentement (ou en marchant si besoin).' },
 ];
 
-const WEEKS = [
-  { theme: 'Mise en route', ef: 30, frac: { reps: 6, on: '1 min', onPace: 'rapide', off: '1 min 30', min: 40 }, long: 5.5 },
-  { theme: 'On installe le rythme', ef: 30, frac: { reps: 8, on: '1 min', onPace: 'rapide', off: '1 min', min: 40 }, long: 6 },
-  { theme: 'Premiers progrès', ef: 35, frac: { reps: 5, on: '2 min', onPace: 'rapide', off: '1 min 30', min: 42 }, long: 6.5 },
-  { theme: 'Semaine récup', recovery: true, ef: 30, frac: { strides: 6, min: 30 }, long: 5 },
-  { theme: 'On allonge', ef: 35, frac: { reps: 4, on: '3 min', onPace: 'allure 10 km', off: '2 min', min: 45 }, long: 7 },
-  { theme: 'Plus d\'endurance', ef: 40, frac: { reps: 5, on: '3 min', onPace: 'allure 10 km', off: '1 min 30', min: 47 }, long: 7.5 },
-  { theme: 'Cap des 8 km', ef: 40, frac: { reps: 3, on: '5 min', onPace: 'allure 10 km', off: '2 min', min: 45 }, long: 8 },
-  { theme: 'Semaine récup', recovery: true, ef: 30, frac: { reps: 4, on: '2 min', onPace: 'allure 10 km', off: '2 min', min: 38 }, long: 6 },
-  { theme: 'Dernière ligne droite', ef: 40, frac: { reps: 4, on: '5 min', onPace: 'allure 10 km', off: '2 min', min: 50 }, long: 8.5 },
-  { theme: 'Cap des 9 km', ef: 45, frac: { reps: 3, on: '8 min', onPace: 'allure 10 km', off: '2 min', min: 52 }, long: 9 },
-  { theme: 'Grosse semaine', ef: 45, frac: { reps: 2, on: '12 min', onPace: 'allure 10 km', off: '3 min', min: 52 }, long: 9.5 },
-  { theme: 'Semaine du 10 km !', taper: true, ef: 25, frac: { reps: 4, on: '1 min', onPace: 'allure 10 km', off: '1 min 30', min: 30 }, long: 10 },
+// frac : reps × on (secondes) à l'allure "pace", récupération off (secondes)
+const PREMIER_10 = [
+  { theme: 'Mise en route', ef: 30, frac: { reps: 6, on: 60, pace: 'rapide', off: 90 }, long: 5.5 },
+  { theme: 'On installe le rythme', ef: 30, frac: { reps: 8, on: 60, pace: 'rapide', off: 60 }, long: 6 },
+  { theme: 'Premiers progrès', ef: 35, frac: { reps: 5, on: 120, pace: 'rapide', off: 90 }, long: 6.5 },
+  { theme: 'Semaine récup', recovery: true, ef: 30, frac: { strides: 6 }, long: 5 },
+  { theme: 'On allonge', ef: 35, frac: { reps: 4, on: 180, pace: 'allure 10 km', off: 120 }, long: 7 },
+  { theme: 'Plus d\'endurance', ef: 40, frac: { reps: 5, on: 180, pace: 'allure 10 km', off: 90 }, long: 7.5 },
+  { theme: 'Cap des 8 km', ef: 40, frac: { reps: 3, on: 300, pace: 'allure 10 km', off: 120 }, long: 8 },
+  { theme: 'Semaine récup', recovery: true, ef: 30, frac: { reps: 4, on: 120, pace: 'allure 10 km', off: 120 }, long: 6 },
+  { theme: 'Dernière ligne droite', ef: 40, frac: { reps: 4, on: 300, pace: 'allure 10 km', off: 120 }, long: 8.5 },
+  { theme: 'Cap des 9 km', ef: 45, frac: { reps: 3, on: 480, pace: 'allure 10 km', off: 120 }, long: 9 },
+  { theme: 'Grosse semaine', ef: 45, frac: { reps: 2, on: 720, pace: 'allure 10 km', off: 180 }, long: 9.5 },
+  { theme: 'Semaine du 10 km !', taper: true, ef: 25, frac: { reps: 4, on: 60, pace: 'allure 10 km', off: 90 }, long: 10 },
 ];
 
-export const TOTAL_WEEKS = WEEKS.length;
+const CHRONO_10 = [
+  { theme: 'Reprise', ef: 40, frac: { reps: 8, on: 60, pace: 'rapide', off: 60 }, long: 8 },
+  { theme: 'On monte le volume', ef: 40, frac: { reps: 5, on: 180, pace: 'allure 10 km', off: 90 }, long: 8.5 },
+  { theme: 'Travail au seuil', ef: 45, frac: { reps: 3, on: 360, pace: 'allure 10 km', off: 120 }, long: 9 },
+  { theme: 'Semaine récup', recovery: true, ef: 35, frac: { strides: 6 }, long: 7 },
+  { theme: 'Vitesse', ef: 45, frac: { reps: 10, on: 60, pace: 'rapide', off: 60 }, long: 10 },
+  { theme: 'Seuil long', ef: 45, frac: { reps: 3, on: 480, pace: 'allure 10 km', off: 120 }, long: 10 },
+  { theme: 'Allure spécifique', ef: 50, frac: { reps: 4, on: 420, pace: 'allure 10 km', off: 120 }, long: 11 },
+  { theme: 'Semaine récup', recovery: true, ef: 35, frac: { reps: 5, on: 120, pace: 'allure 10 km', off: 120 }, long: 8 },
+  { theme: 'VMA', ef: 50, frac: { reps: 6, on: 180, pace: 'rapide', off: 120 }, long: 11 },
+  { theme: 'Bloc spécifique', ef: 50, frac: { reps: 2, on: 900, pace: 'allure 10 km', off: 180 }, long: 12 },
+  { theme: 'Dernier gros bloc', ef: 45, frac: { reps: 3, on: 600, pace: 'allure 10 km', off: 120 }, long: 10 },
+  { theme: 'Semaine du chrono !', taper: true, ef: 30, frac: { reps: 5, on: 60, pace: 'allure 10 km', off: 90 }, long: 10 },
+];
 
-function renfoPhase(week) {
-  if (week <= 4) return 'A';
-  if (week <= 8) return 'B';
-  if (week <= 11) return 'C';
-  return 'D';
+export const PLANS = {
+  premier10: {
+    name: 'Mon premier 10 km',
+    short: 'Premier 10 km',
+    description: 'De 5 km à 10 km en 12 semaines, à ton rythme.',
+    weeks: PREMIER_10,
+    renfo: (w) => (w <= 4 ? 'A' : w <= 8 ? 'B' : w <= 11 ? 'C' : 'D'),
+    race: {
+      title: 'Ton premier 10 km 🎉',
+      summary: '10 km à ton rythme, profite !',
+      finish: 'Pense à ta récompense 📚',
+    },
+  },
+  chrono10: {
+    name: '10 km plus vite',
+    short: '10 km chrono',
+    description: 'Tu cours déjà 10 km ? 12 semaines pour améliorer ton temps.',
+    weeks: CHRONO_10,
+    renfo: (w) => (w <= 4 ? 'B' : w <= 11 ? 'C' : 'D'),
+    race: {
+      title: 'Ton 10 km chrono ⏱',
+      summary: '10 km pour battre ton record !',
+      finish: 'Tout donner, ton record t\'attend',
+    },
+  },
+};
+
+export const TOTAL_WEEKS = 12;
+
+export function formatSeconds(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return s ? `${m} min ${String(s).padStart(2, '0')}` : `${m} min`;
+}
+
+function kmText(km) {
+  return String(km).replace('.', ',');
 }
 
 function efSession(week, w) {
@@ -66,8 +109,8 @@ function fracSession(week, w) {
     return {
       type: 'frac',
       title: 'Footing + accélérations',
-      summary: `${f.min} min avec ${f.strides} accélérations`,
-      durationMin: f.min,
+      summary: `30 min avec ${f.strides} accélérations`,
+      durationMin: 30,
       steps: [
         { kind: 'warm', label: 'Échauffement', detail: '10 min tranquille' },
         { kind: 'run', label: '15 min en endurance fondamentale', detail: `Glisse ${f.strides} accélérations de 20 s, 1 min de trot entre chaque` },
@@ -75,32 +118,36 @@ function fracSession(week, w) {
       ],
     };
   }
+  const warm = w.taper ? 600 : 900;
+  const cool = w.taper ? 300 : 600;
+  const total = Math.round((warm + cool + f.reps * f.on + (f.reps - 1) * f.off) / 60);
   return {
     type: 'frac',
-    title: `${f.reps} × ${f.on}`,
-    summary: `${f.reps} × ${f.on} ${f.onPace}, récup ${f.off}`,
-    durationMin: f.min,
+    title: `${f.reps} × ${formatSeconds(f.on)}`,
+    summary: `${f.reps} × ${formatSeconds(f.on)} ${f.pace}, récup ${formatSeconds(f.off)}`,
+    durationMin: total,
+    intervals: { ...f, warm, cool },
     steps: [
-      { kind: 'warm', label: 'Échauffement', detail: '15 min tranquille + 3 accélérations progressives' },
-      { kind: 'fast', label: `${f.reps} × ${f.on} ${f.onPace}`, detail: `Récupération : ${f.off} de trot entre chaque` },
-      { kind: 'cool', label: 'Retour au calme', detail: '10 min très lent puis étirements doux' },
+      { kind: 'warm', label: 'Échauffement', detail: `${warm / 60} min tranquille + 3 accélérations progressives` },
+      { kind: 'fast', label: `${f.reps} × ${formatSeconds(f.on)} ${f.pace}`, detail: `Récupération : ${formatSeconds(f.off)} de trot entre chaque` },
+      { kind: 'cool', label: 'Retour au calme', detail: `${cool / 60} min très lent puis étirements doux` },
     ],
   };
 }
 
-function longSession(week, w) {
+function longSession(week, w, plan) {
   if (w.taper) {
     return {
       type: 'race',
-      title: 'Ton premier 10 km 🎉',
-      summary: '10 km à ton rythme, profite !',
+      title: plan.race.title,
+      summary: plan.race.summary,
       distanceKm: 10,
       durationMin: 70,
       steps: [
         { kind: 'warm', label: 'Échauffement', detail: '10 min de trot + quelques accélérations' },
         { kind: 'run', label: 'Km 1 à 3 : pars prudemment', detail: 'Un peu plus lent que ce que tu crois pouvoir faire' },
         { kind: 'fast', label: 'Km 4 à 8 : allure 10 km', detail: 'Installe ton rythme, respire' },
-        { kind: 'fast', label: 'Km 9 et 10 : tout ce qu\'il reste !', detail: 'Pense à ta récompense 📚' },
+        { kind: 'fast', label: 'Km 9 et 10 : tout ce qu\'il reste !', detail: plan.race.finish },
       ],
     };
   }
@@ -108,20 +155,19 @@ function longSession(week, w) {
   const minutes = Math.round(km * 7.5);
   return {
     type: 'long',
-    title: `Sortie longue ${String(km).replace('.', ',')} km`,
-    summary: `${String(km).replace('.', ',')} km tranquille (~${minutes} min)`,
+    title: `Sortie longue ${kmText(km)} km`,
+    summary: `${kmText(km)} km tranquille (~${minutes} min)`,
     distanceKm: km,
     durationMin: minutes,
     steps: [
       { kind: 'warm', label: 'Départ très tranquille', detail: 'Les 10 premières minutes encore plus lentement' },
-      { kind: 'run', label: `${String(km).replace('.', ',')} km en endurance fondamentale`, detail: 'L\'objectif est la distance, pas la vitesse. Marcher 1 min est autorisé !' },
+      { kind: 'run', label: `${kmText(km)} km en endurance fondamentale`, detail: 'L\'objectif est la distance, pas la vitesse. Marcher 1 min est autorisé !' },
       { kind: 'cool', label: 'Étirements', detail: '5 min de marche puis étirements doux' },
     ],
   };
 }
 
-function renfoSession(week) {
-  const phase = renfoPhase(week);
+function renfoSession(phase) {
   return {
     type: 'renfo',
     title: phase === 'D' ? 'Renfo léger & mobilité' : `Renfo niveau ${phase}`,
@@ -132,23 +178,31 @@ function renfoSession(week) {
   };
 }
 
-export function buildProgram() {
-  return WEEKS.map((w, i) => {
+const planCache = {};
+
+// Semaines d'un programme. Chaque séance a une clé "w3-s2" (semaine 3, séance 2).
+export function buildPlan(planId) {
+  if (planCache[planId]) return planCache[planId];
+  const plan = PLANS[planId];
+  planCache[planId] = plan.weeks.map((w, i) => {
     const week = i + 1;
-    const sessions = [efSession(week, w), fracSession(week, w), renfoSession(week), longSession(week, w)]
-      .map((s, slot) => ({ ...s, id: `w${week}-s${slot + 1}`, week, slot }));
+    const sessions = [efSession(week, w), fracSession(week, w), renfoSession(plan.renfo(week)), longSession(week, w, plan)]
+      .map((s, slot) => ({ ...s, key: `w${week}-s${slot + 1}`, week, slot }));
     return { week, theme: w.theme, recovery: !!w.recovery, taper: !!w.taper, sessions };
   });
+  return planCache[planId];
 }
 
-export const PROGRAM = buildProgram();
-
-export function findSession(id) {
-  for (const w of PROGRAM) {
-    const s = w.sessions.find((x) => x.id === id);
-    if (s) return s;
+// Étapes du minuteur pour une séance de fractionné.
+export function intervalSteps(session) {
+  const f = session.intervals;
+  const steps = [{ kind: 'rest', name: 'Échauffement', seconds: f.warm, tip: 'Trottine tranquillement, termine par 3 accélérations progressives.', say: 'Échauffement', badge: '🔥 Échauffement' }];
+  for (let i = 1; i <= f.reps; i++) {
+    steps.push({ kind: 'work', name: `Accélère · ${i}/${f.reps}`, seconds: f.on, tip: `Allure : ${f.pace}`, say: i === f.reps ? 'Dernière accélération, allez !' : `Accélère, ${f.pace}`, badge: '⚡ Accélère' });
+    if (i < f.reps) steps.push({ kind: 'rest', name: 'Récupère en trottinant', seconds: f.off, tip: 'Respire, relâche les épaules.', say: 'Récupère', badge: '😮‍💨 Récupère' });
   }
-  return null;
+  steps.push({ kind: 'rest', name: 'Retour au calme', seconds: f.cool, tip: 'Très lentement, puis quelques étirements.', say: 'Bravo ! Retour au calme', badge: '🧘 Retour au calme' });
+  return steps;
 }
 
 // --- Renforcement musculaire -------------------------------------------------
@@ -256,13 +310,13 @@ export function getRenfo(phase, place) {
 // Transforme une séance de renfo en suite d'étapes pour le minuteur guidé.
 export function renfoSteps(phase, place) {
   const r = getRenfo(phase, place);
-  const steps = [{ ...WARMUP, kind: 'work' }];
+  const steps = [{ ...WARMUP, kind: 'work', say: 'Échauffement, 5 minutes' }];
   const pushExercise = (ex, suffix) => {
     if (ex.seconds && ex.perSide) {
-      steps.push({ kind: 'work', name: `${ex.name} · côté gauche${suffix}`, seconds: ex.seconds, tip: ex.tip });
-      steps.push({ kind: 'work', name: `${ex.name} · côté droit${suffix}`, seconds: ex.seconds, tip: ex.tip });
+      steps.push({ kind: 'work', name: `${ex.name} · côté gauche${suffix}`, seconds: ex.seconds, tip: ex.tip, say: `${ex.name}, côté gauche` });
+      steps.push({ kind: 'work', name: `${ex.name} · côté droit${suffix}`, seconds: ex.seconds, tip: ex.tip, say: 'Côté droit' });
     } else {
-      steps.push({ kind: 'work', name: `${ex.name}${suffix}`, seconds: ex.seconds, reps: ex.reps, tip: ex.tip });
+      steps.push({ kind: 'work', name: `${ex.name}${suffix}`, seconds: ex.seconds, reps: ex.reps, tip: ex.tip, say: ex.reps ? `${ex.name}, ${ex.reps}` : `${ex.name}, ${ex.seconds} secondes` });
     }
   };
   if (r.mode === 'circuit') {
@@ -271,7 +325,7 @@ export function renfoSteps(phase, place) {
         pushExercise(ex, ` · tour ${round}/${r.rounds}`);
         const last = i === r.exercises.length - 1;
         if (last && round === r.rounds) return;
-        steps.push({ kind: 'rest', name: last ? 'Récupération entre les tours' : 'Repos', seconds: last ? r.roundRest : r.rest });
+        steps.push({ kind: 'rest', name: last ? 'Récupération entre les tours' : 'Repos', seconds: last ? r.roundRest : r.rest, say: last ? `Fin du tour ${round}, récupère` : 'Repos' });
       });
     }
   } else {
@@ -279,7 +333,7 @@ export function renfoSteps(phase, place) {
       for (let set = 1; set <= ex.sets; set++) {
         pushExercise(ex, ` · série ${set}/${ex.sets}`);
         const lastAll = i === r.exercises.length - 1 && set === ex.sets;
-        if (!lastAll) steps.push({ kind: 'rest', name: 'Repos', seconds: r.rest });
+        if (!lastAll) steps.push({ kind: 'rest', name: 'Repos', seconds: r.rest, say: 'Repos' });
       }
     });
   }
