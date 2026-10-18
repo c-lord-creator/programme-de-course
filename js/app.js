@@ -7,6 +7,7 @@ import { bindCharts } from './chart.js';
 import { downloadCalendar } from './ics.js';
 import { startGuidedWorkout } from './timer.js';
 import * as strava from './strava.js';
+import { importHealthFile } from './health.js';
 import * as V from './views.js';
 import { ui, esc, parseNum, toast, openModal, closeModal } from './ui.js';
 
@@ -50,7 +51,7 @@ const TABS = [
   { route: 'recompenses', icon: '🎁', label: 'Récompenses' },
 ];
 
-const TAB_OF = { seance: 'programme', nouveau: 'programme', course: 'journal', activite: 'journal', conseils: '', reglages: '', strava: '' };
+const TAB_OF = { seance: 'programme', nouveau: 'programme', course: 'journal', activite: 'journal', conseils: '', reglages: '', strava: '', sante: '' };
 
 function currentRoute() {
   const hash = decodeURIComponent(location.hash.replace(/^#\/?/, ''));
@@ -100,6 +101,7 @@ function render() {
     recompenses: V.viewRewards,
     reglages: V.viewSettings,
     strava: V.viewStrava,
+    sante: V.viewHealth,
     nouveau: V.viewNewCycle,
   };
   app.innerHTML = (views[route.name] || V.viewHome)();
@@ -214,7 +216,7 @@ const forms = {
     state.profile = profile;
     startNewCycle(fd.get('planId'), cycleStart(form));
     if (profile.startWeight && !state.weights.length) {
-      state.weights.push({ date: todayISO(), kg: profile.startWeight });
+      state.weights.push({ date: todayISO(), kg: profile.startWeight, source: 'profile' });
     }
     save();
     history.replaceState(null, '', '#/');
@@ -226,7 +228,7 @@ const forms = {
         <p>Ajoute tes 48 séances et tes pesées à ton Calendrier Apple pour recevoir les rappels.</p>
         ${V.calendarHelp()}
         <button class="btn btn-primary btn-block" data-action="calendar">📅 Ajouter au Calendrier</button>
-        <a class="btn btn-outline btn-block" href="#/strava">Connecter Strava</a>
+        <a class="btn btn-outline btn-block" href="#/sante">⌚ Importer mes séances Apple Watch</a>
         <button class="btn btn-ghost btn-block" data-close>Plus tard</button>
       </div>`);
   },
@@ -570,6 +572,9 @@ document.addEventListener('change', (e) => {
     toast('Association mise à jour ✓');
     afterProgress();
   }
+  if (el.dataset.action === 'import-health' && el.files[0]) {
+    runHealthImport(el.files[0]);
+  }
   if (el.dataset.action === 'import' && el.files[0]) {
     el.files[0].text().then((text) => {
       try {
@@ -585,6 +590,51 @@ document.addEventListener('change', (e) => {
     });
   }
 });
+
+// --- Import Apple Santé ---------------------------------------------------------------------
+
+async function runHealthImport(file) {
+  ui.importProgress = 0;
+  render();
+  let lastPaint = 0;
+  try {
+    const r = await importHealthFile(file, (p) => {
+      ui.importProgress = p;
+      // On ne redessine pas à chaque morceau lu : 4 fois par seconde suffit.
+      if (Date.now() - lastPaint > 250) {
+        lastPaint = Date.now();
+        const label = document.querySelector('.card strong');
+        if (currentRoute().name === 'sante') render();
+        else if (label) label.textContent = `Import en cours… ${Math.round(p * 100)} %`;
+      }
+    });
+    ui.importProgress = null;
+    render();
+    const parts = [
+      `${r.added} nouvelle${r.added > 1 ? 's' : ''} séance${r.added > 1 ? 's' : ''}`,
+      r.linked ? `${r.linked} cochée${r.linked > 1 ? 's' : ''} dans le programme` : null,
+      r.weights ? `${r.weights} pesée${r.weights > 1 ? 's' : ''}` : null,
+      r.nights ? `${r.nights} nuit${r.nights > 1 ? 's' : ''} de sommeil` : null,
+    ].filter(Boolean);
+    openModal(`
+      <div class="celebrate">
+        <div class="badge-big">⌚</div>
+        <h2>Import terminé</h2>
+        <ul class="bullets left">${parts.map((x) => `<li>${x}</li>`).join('')}</ul>
+        ${r.workouts === 0 ? '<p class="muted">Aucune course ni séance de renfo trouvée sur les 12 derniers mois.</p>' : ''}
+        <a class="btn btn-primary btn-block" href="#/journal">Voir mon journal</a>
+        <button class="btn btn-ghost btn-block" data-close>Fermer</button>
+      </div>`, (wrap) => {
+      wrap.querySelector('[data-close]').addEventListener('click', () => setTimeout(afterProgress, 50));
+      wrap.querySelector('a').addEventListener('click', () => setTimeout(afterProgress, 300));
+    });
+  } catch (e) {
+    console.warn(e);
+    ui.importProgress = null;
+    render();
+    toast(`Import impossible : ${e.message}`);
+  }
+}
 
 // --- Démarrage ----------------------------------------------------------------------------
 

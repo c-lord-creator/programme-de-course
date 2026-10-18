@@ -11,6 +11,7 @@ import {
 import { lineChart, barChart } from './chart.js';
 import { isConnected, hasKeys, routeSvg, lastSyncText, redirectUri } from './strava.js';
 import { ADVICE, MEALS } from './content.js';
+import { isSupported as healthSupported, lastImportText } from './health.js';
 import {
   ui, esc, num, capitalize, relDay, pace, paceFromSeconds, duration, hours, FEELINGS,
 } from './ui.js';
@@ -49,7 +50,7 @@ function sessionRow(s) {
         <strong>${esc(s.title)}</strong>
         <small>${dateShortDay(sessionDate(s))}${getState().moves[s.id] ? ' (déplacée)' : ''} · ${esc(s.summary)}</small>
       </span>
-      ${log?.activityId ? '<span class="strava-dot" title="Synchronisé avec Strava">S</span>' : ''}
+      ${log?.activityId ? (getState().activities[log.activityId]?.source === 'apple' ? '<span class="strava-dot apple" title="Importé depuis l\'Apple Watch">⌚</span>' : '<span class="strava-dot" title="Synchronisé avec Strava">S</span>') : ''}
       <span class="chev">›</span>
     </a>`;
 }
@@ -62,9 +63,28 @@ function feelingPicker(value) {
       </div></fieldset>`;
 }
 
+function sourceLogo(source, size = '') {
+  return source === 'apple'
+    ? `<span class="health-logo ${size}" aria-label="Apple Santé">⌚</span>`
+    : `<span class="strava-logo ${size}" aria-label="Strava">S</span>`;
+}
+
+function sourceName(a) {
+  return a?.source === 'apple' ? 'Apple Watch' : 'Strava';
+}
+
 function stravaBar() {
   if (!isConnected()) {
-    return `<a class="card strava-cta" href="#/strava"><span class="strava-logo">S</span><span><strong>Connecte Strava</strong><small>Tes courses cocheront les séances toutes seules.</small></span><span class="chev">›</span></a>`;
+    const last = lastImportText();
+    if (last) {
+      return `
+        <a class="strava-bar" href="#/sante">
+          ${sourceLogo('apple')}
+          <span>Apple Watch · importé le ${last}</span>
+          <span class="btn btn-small btn-outline">Importer</span>
+        </a>`;
+    }
+    return `<a class="card strava-cta" href="#/sante">${sourceLogo('apple')}<span><strong>Importe tes séances Apple Watch</strong><small>Courses, renfo, poids et sommeil depuis l'app Santé.</small></span><span class="chev">›</span></a>`;
   }
   return `
     <div class="strava-bar">
@@ -204,7 +224,7 @@ export function viewOnboarding() {
       <div class="hero hero-intro">
         <div class="logo">10K</div>
         <h1>Bienvenue sur Élan 10K</h1>
-        <p>12 semaines pour courir 10 km, avec du renfo, le suivi de ton poids, de ton sommeil, Strava et des récompenses à chaque palier.</p>
+        <p>12 semaines pour courir 10 km, avec du renfo, tes séances Apple Watch, le suivi de ton poids et de ton sommeil, et des récompenses à chaque palier.</p>
       </div>
       <form class="card" data-form="onboarding">
         <h2>On fait connaissance</h2>
@@ -358,7 +378,7 @@ function stravaBlock(activityId) {
   if (!a) return '';
   return `
     <a class="card strava-card" href="#/activite/${a.id}">
-      <div class="card-head"><h3><span class="strava-logo small">S</span> ${esc(a.name)}</h3><span class="chev">›</span></div>
+      <div class="card-head"><h3>${sourceLogo(a.source, 'small')} ${esc(a.name)}</h3><span class="chev">›</span></div>
       ${a.polyline ? routeSvg(a.polyline, { height: 150 }) : ''}
       <div class="done-stats">
         ${RUN_SPORTS.includes(a.sportType) ? `<span><strong>${num(a.distanceKm, 2)}</strong> km</span><span><strong>${pace(a.movingMin, a.distanceKm)}</strong> /km</span>` : ''}
@@ -396,7 +416,7 @@ function logBlock(session) {
   return `
     <form class="card" data-form="log" data-id="${session.id}">
       <h3>${log ? 'Modifier ma séance' : 'J\'ai fait cette séance'}</h3>
-      ${isConnected() && !log ? '<p class="muted small">Avec Strava, ta séance se coche toute seule après la synchronisation. Tu peux aussi la noter ici.</p>' : ''}
+      ${!log ? `<p class="muted small">${isConnected() ? 'Avec Strava, ta séance se coche toute seule après la synchronisation.' : 'Avec ton Apple Watch, ta séance se coche toute seule à l\'import Santé.'} Tu peux aussi la noter ici.</p>` : ''}
       <div class="row">
         <label class="field"><span>Date</span><input type="date" name="date" value="${date}" required></label>
         ${run ? `<label class="field"><span>Distance (km)</span><input name="distanceKm" inputmode="decimal" value="${log ? num(log.distanceKm, 2) : session.distanceKm ? num(session.distanceKm) : ''}" placeholder="ex. 5,2" required></label>` : ''}
@@ -546,7 +566,7 @@ export function viewJournal() {
         ${shown.map((e) => `
           <li><a href="${href(e)}">
             <span class="session-icon ${e.run ? 't-orange' : 't-pink'}">${e.run ? '🏃' : '💪'}</span>
-            <span class="session-text"><strong>${esc(e.title)}</strong><small>${dateShortDay(e.date)}${e.activityId ? ' · Strava' : ''}</small></span>
+            <span class="session-text"><strong>${esc(e.title)}</strong><small>${dateShortDay(e.date)}${e.activityId ? ` · ${sourceName(getState().activities[e.activityId])}` : ''}</small></span>
             <span class="activity-figures">${e.run ? `<strong>${num(e.distanceKm, 2)} km</strong><small>${pace(e.durationMin, e.distanceKm)} /km</small>` : `<strong>${duration(e.durationMin)}</strong>`}</span>
           </a></li>`).join('')}
       </ul>` : '<p class="empty">Tes courses apparaîtront ici.</p>'}
@@ -580,7 +600,7 @@ export function viewActivity(id) {
   const fastestSplit = splits.filter((sp) => sp.km > 0.5).reduce((m, sp) => Math.min(m, sp.seconds / sp.km), Infinity);
   const slowestSplit = splits.filter((sp) => sp.km > 0.5).reduce((m, sp) => Math.max(m, sp.seconds / sp.km), 0);
   return `
-    <header class="page-head"><a class="back" href="#/journal">‹ Journal</a><a class="link" href="https://www.strava.com/activities/${a.id}" target="_blank" rel="noopener">Voir sur Strava ↗</a></header>
+    <header class="page-head"><a class="back" href="#/journal">‹ Journal</a>${a.source === 'apple' ? '' : `<a class="link" href="https://www.strava.com/activities/${a.id}" target="_blank" rel="noopener">Voir sur Strava ↗</a>`}</header>
     <section class="session-hero t-orange">
       <span class="chip">${run ? '🏃' : '💪'} ${SPORT_LABEL[a.sportType] || a.sportType}</span>
       <h1>${esc(a.name)}</h1>
@@ -605,7 +625,7 @@ export function viewActivity(id) {
             const width = slowestSplit > fastestSplit ? 40 + 60 * ((slowestSplit - spk) / (slowestSplit - fastestSplit)) : 100;
             return `<li><span>${sp.km < 0.95 ? num(sp.km, 1) : i + 1}</span><div class="split-bar"><span style="width:${width}%" class="${spk === fastestSplit ? 'best' : ''}"></span></div><strong>${paceFromSeconds(sp.seconds, sp.km)}</strong><small>${sp.hr ? `${Math.round(sp.hr)} bpm` : ''}</small></li>`;
           }).join('')}
-        </ul>` : `<p class="muted">${ui.loadingDetails[a.id] ? 'Chargement…' : 'Temps au km indisponibles.'}</p>`}
+        </ul>` : `<p class="muted">${ui.loadingDetails[a.id] ? 'Chargement…' : a.source === 'apple' ? 'Temps au km disponibles pour les courses avec tracé GPS.' : 'Temps au km indisponibles.'}</p>`}
       </section>` : ''}
     <section class="card">
       <h3>🔗 Dans mon programme</h3>
@@ -617,7 +637,49 @@ export function viewActivity(id) {
         </select></label>
       <p class="muted small">L'association est automatique, tu peux la corriger ici.</p>
     </section>
-    <p class="muted small center">Données fournies par Strava</p>`;
+    <p class="muted small center">${a.source === 'apple' ? 'Données importées depuis Apple Santé' : 'Données fournies par Strava'}</p>`;
+}
+
+// --- Apple Santé --------------------------------------------------------------------------------
+
+export function viewHealth() {
+  const h = getState().health;
+  const p = ui.importProgress;
+  return `
+    <header class="page-head"><a class="back" href="#/">‹ Accueil</a></header>
+    <h1>Apple Watch · Santé</h1>
+    <p class="muted">Tes courses (avec tracé GPS et temps au km), tes séances de renfo, ton poids et ton sommeil, en un seul import.</p>
+    ${!healthSupported() ? '<section class="card warn"><p>⚠️ Mets ton iPhone à jour (iOS 16.4 ou plus récent) pour pouvoir lire l\'export Santé.</p></section>' : ''}
+    <section class="card">
+      <h3>1. Exporte tes données Santé</h3>
+      <ol class="steps-help">
+        <li>Ouvre l'app <strong>Santé</strong> ❤️.</li>
+        <li>Touche ta <strong>photo</strong> en haut à droite.</li>
+        <li>Tout en bas : <strong>Exporter toutes les données de santé</strong> → <strong>Exporter</strong>. Patiente une à deux minutes.</li>
+        <li>Choisis <strong>Enregistrer dans Fichiers</strong> (par exemple dans « Sur mon iPhone »).</li>
+      </ol>
+    </section>
+    <section class="card">
+      <h3>2. Importe le fichier ici</h3>
+      ${p !== null && p !== undefined ? `
+        <p><strong>Import en cours… ${Math.round(p * 100)} %</strong></p>
+        <div class="bar"><span style="width:${Math.round(p * 100)}%"></span></div>
+        <p class="muted small">Garde l'app ouverte, ça peut prendre une minute.</p>` : `
+        <label class="btn btn-primary btn-block file-btn">⌚ Choisir le fichier exporté (.zip)
+          <input type="file" accept=".zip,.xml,application/zip,text/xml" data-action="import-health" hidden></label>
+        <p class="muted small">Le fichier s'appelle <code>exportation.zip</code> ou <code>export.zip</code>. Tout est lu sur ton téléphone, rien n'est envoyé ailleurs.</p>`}
+      ${h?.lastImport ? `<p class="muted small">Dernier import le ${lastImportText()} · ${h.workouts} séance${h.workouts > 1 ? 's' : ''} trouvée${h.workouts > 1 ? 's' : ''} sur 12 mois.</p>` : ''}
+    </section>
+    <section class="card">
+      <h3>Comment ça marche</h3>
+      <ul class="bullets">
+        <li>Lance tes séances sur ta montre avec l'app <strong>Exercice</strong> : « Course extérieure » pour courir, « Renforcement musculaire » ou « Entraînement fonctionnel » pour le renfo.</li>
+        <li>Chaque course coche la séance prévue le même jour (ou la plus proche dans les 3 jours). Une course en plus devient une course hors programme.</li>
+        <li>Tes pesées et tes nuits sont ajoutées à ton suivi (sans écraser ce que tu as noté toi-même).</li>
+        <li>Refais l'import quand tu veux, par exemple une fois par semaine après ta sortie longue : rien n'est compté en double.</li>
+        <li>Tu peux corriger l'association d'une séance depuis le détail de l'activité, dans le Journal.</li>
+      </ul>
+    </section>`;
 }
 
 // --- Strava -----------------------------------------------------------------------------------
@@ -937,8 +999,10 @@ export function viewSettings() {
   return `
     <header class="page-head"><a class="back" href="#/">‹ Accueil</a></header>
     <h1>Réglages</h1>
-    <a class="card strava-cta" href="#/strava"><span class="strava-logo">S</span>
-      <span><strong>Strava</strong><small>${isConnected() ? `Connecté · synchronisé ${lastSyncText()}` : 'Non connecté · toucher pour configurer'}</small></span><span class="chev">›</span></a>
+    <a class="card strava-cta" href="#/sante">${sourceLogo('apple')}
+      <span><strong>Apple Watch · Santé</strong><small>${lastImportText() ? `Dernier import le ${lastImportText()}` : 'Importer mes séances, mon poids et mon sommeil'}</small></span><span class="chev">›</span></a>
+    <a class="card strava-cta" href="#/strava">${sourceLogo('strava')}
+      <span><strong>Strava</strong><small>${isConnected() ? `Connecté · synchronisé ${lastSyncText()}` : 'Facultatif · nécessite un abonnement Strava'}</small></span><span class="chev">›</span></a>
     <section class="card">
       <h3>🏃 Mon programme</h3>
       <p><strong>${esc(plan.name)}</strong> · depuis le ${formatDate(state.cycle.startDate, { day: 'numeric', month: 'long', year: 'numeric' })}</p>

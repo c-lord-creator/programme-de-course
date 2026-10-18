@@ -8,6 +8,7 @@ export const ui = {
   journalLimit: 20,
   syncing: false,
   loadingDetails: {},
+  importProgress: null,
 };
 
 export function esc(text) {

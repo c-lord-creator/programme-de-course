@@ -1,5 +1,5 @@
 // Garde l'app disponible hors connexion.
-const CACHE = 'elan10k-v2';
+const CACHE = 'elan10k-v3';
 const FILES = [
   './',
   './index.html',
@@ -15,6 +15,7 @@ const FILES = [
   './js/views.js',
   './js/ui.js',
   './js/content.js',
+  './js/health.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',

@@ -12,7 +12,10 @@ En ligne : https://c-lord-creator.github.io/programme-de-course/
   programme d'une semaine ou déplacer une séance.
 - **Minuteurs guidés** pour le renfo (maison ou salle, 4 niveaux) et pour le fractionné : annonces vocales,
   bips, vibrations, écran maintenu allumé.
-- **Strava** : connexion, synchronisation automatique à l'ouverture, association des activités aux séances
+- **Apple Watch / Apple Santé** : import de l'export de l'app Santé (fichier .zip) : courses avec tracé GPS,
+  temps au km et fréquence cardiaque, séances de renfo, pesées et nuits de sommeil. Les séances se cochent toutes
+  seules et un nouvel import ne crée pas de doublons.
+- **Strava** (facultatif, nécessite un abonnement Strava pour créer une clé API) : connexion, synchronisation automatique à l'ouverture, association des activités aux séances
   (courses et séances de renfo), tracé du parcours, allure, fréquence cardiaque, dénivelé, temps au km.
 - **Journal** : toutes les activités, kilomètres par semaine, records, estimation du temps sur 10 km.
 - **Suivi** : poids (courbe et objectif), mensurations, eau et sommeil au quotidien avec historique.
