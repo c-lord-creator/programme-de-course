@@ -56,11 +56,11 @@ export function lineChart(points, { goal = null, unit = 'kg' } = {}) {
   const dots = data
     .map((p, i) => `<circle cx="${sx(xs[i])}" cy="${sy(p.value)}" r="4" class="dot" data-i="${i}"/>`)
     .join('');
-  const json = encodeURIComponent(JSON.stringify(data.map((p, i) => ({ x: sx(xs[i]), y: sy(p.value), v: p.value, d: p.date }))));
+  const json = encodeURIComponent(JSON.stringify(data.map((p, i) => ({ x: sx(xs[i]), y: sy(p.value), v: p.value, l: formatShort(p.date) }))));
 
   return `
     <div class="chart" data-points="${json}" data-unit="${unit}">
-      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Évolution du poids">
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Courbe d'évolution">
         <defs>
           <linearGradient id="areaGrad" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0" stop-color="var(--accent)" stop-opacity="0.28"/>
@@ -85,7 +85,7 @@ export function bindCharts(root) {
     const svg = el.querySelector('svg');
     const tip = el.querySelector('.tooltip');
     const cross = el.querySelector('.cross');
-    const dots = el.querySelectorAll('.dot');
+    const dots = el.querySelectorAll('.dot, .bar-mark');
     const show = (evt) => {
       const rect = svg.getBoundingClientRect();
       const x = ((evt.clientX - rect.left) / rect.width) * W;
@@ -99,7 +99,7 @@ export function bindCharts(root) {
       cross.setAttribute('visibility', 'visible');
       dots.forEach((d, i) => d.classList.toggle('active', i === best));
       tip.hidden = false;
-      tip.innerHTML = `<strong>${fmt(p.v)} ${unit}</strong><span>${formatShort(p.d)}</span>`;
+      tip.innerHTML = `<strong>${fmt(p.v)} ${unit}</strong><span>${p.l}</span>`;
       const left = (p.x / W) * rect.width;
       tip.style.left = `${Math.min(Math.max(left, 50), rect.width - 50)}px`;
       tip.style.top = `${(p.y / H) * rect.height - 52}px`;
@@ -113,4 +113,53 @@ export function bindCharts(root) {
     svg.addEventListener('pointerdown', show);
     svg.addEventListener('pointerleave', hide);
   });
+}
+
+// Histogramme simple (une seule série) : volume par semaine, eau, sommeil…
+export function barChart(items, { unit = '', goal = null, goalLabel = '' } = {}) {
+  if (!items.some((it) => it.value > 0)) {
+    return '<p class="empty">Pas encore de données.</p>';
+  }
+  const max = Math.max(...items.map((it) => it.value), goal || 0) * 1.15 || 1;
+  const iw = W - PAD.left - PAD.right;
+  const ih = H - PAD.top - PAD.bottom;
+  const slot = iw / items.length;
+  const bw = Math.max(Math.min(slot - 4, 26), 4);
+  const sy = (v) => PAD.top + (1 - v / max) * ih;
+  let grid = '';
+  for (let i = 0; i <= 2; i++) {
+    const v = (max / 1.15) * (i / 2);
+    grid += `<line x1="${PAD.left}" x2="${W - PAD.right}" y1="${sy(v)}" y2="${sy(v)}" class="grid"/>`;
+    grid += `<text x="${PAD.left - 6}" y="${sy(v) + 4}" class="axis" text-anchor="end">${fmt(v)}</text>`;
+  }
+  const goalLine = goal
+    ? `<line x1="${PAD.left}" x2="${W - PAD.right}" y1="${sy(goal)}" y2="${sy(goal)}" class="goal"/>
+       <text x="${W - PAD.right}" y="${sy(goal) - 5}" class="goal-label" text-anchor="end">${goalLabel}</text>`
+    : '';
+  const points = [];
+  const bars = items.map((it, i) => {
+    const cx = PAD.left + slot * i + slot / 2;
+    const top = sy(it.value);
+    const h = PAD.top + ih - top;
+    points.push({ x: cx, y: top, v: it.value, l: it.label });
+    const r = Math.min(4, bw / 2, h);
+    const x = cx - bw / 2;
+    const base = PAD.top + ih;
+    const path = h > 0
+      ? `M${x},${base} L${x},${top + r} Q${x},${top} ${x + r},${top} L${x + bw - r},${top} Q${x + bw},${top} ${x + bw},${top + r} L${x + bw},${base} Z`
+      : '';
+    return `<path d="${path}" class="bar-mark ${it.highlight ? 'hl' : ''}"/>`;
+  }).join('');
+  const step = Math.ceil(items.length / 7);
+  const labels = items.map((it, i) => ((items.length - 1 - i) % step === 0
+    ? `<text x="${PAD.left + slot * i + slot / 2}" y="${H - 6}" class="axis" text-anchor="middle">${it.short ?? it.label}</text>` : '')).join('');
+  const json = encodeURIComponent(JSON.stringify(points));
+  return `
+    <div class="chart" data-points="${json}" data-unit="${unit}">
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Histogramme">
+        ${grid}${bars}${goalLine}${labels}
+        <line class="cross" y1="${PAD.top}" y2="${PAD.top + ih}" x1="0" x2="0" visibility="hidden"/>
+      </svg>
+      <div class="tooltip" hidden></div>
+    </div>`;
 }

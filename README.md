@@ -1,19 +1,34 @@
 # Élan 10K
 
-Application web (installable sur iPhone) pour passer de 5 km à un premier 10 km en 12 semaines,
-avec du renforcement musculaire, le suivi du poids et des récompenses à chaque palier.
+Application web installable sur iPhone pour courir 10 km : programmes de 12 semaines, renforcement musculaire,
+synchronisation Strava, suivi du poids, du sommeil et de l'hydratation, et récompenses à chaque palier.
 
-## Version 1
+En ligne : https://c-lord-creator.github.io/programme-de-course/
 
-- **Programme 12 semaines** : 4 séances par semaine (footing, fractionné, renfo, sortie longue),
-  semaines de récupération (S4, S8) et semaine d'affûtage avant le 10 km (S12).
-- **Renforcement musculaire** maison ou salle, 4 niveaux, avec **minuteur guidé** (bips, vibrations).
-- **Suivi** : séances réalisées (distance, durée, ressenti), courses hors programme,
-  poids avec courbe et objectif, mensurations.
-- **Motivation** : paliers de distance, de kilomètres cumulés, de régularité (semaines validées
-  d'affilée) et de renfo, avec des récompenses modifiables (ex. « Premier 10 km → un nouveau livre »).
-- **Calendrier Apple** : export `.ics` des 48 séances et des 12 pesées, avec rappels.
-- Fonctionne hors connexion. Les données restent sur le téléphone (export / import de sauvegarde).
+## Fonctionnalités
+
+- **2 programmes de 12 semaines** (« Mon premier 10 km » et « 10 km plus vite »), 4 séances par semaine :
+  footing, fractionné, renfo, sortie longue. On peut enchaîner ou recommencer un programme, décaler tout le
+  programme d'une semaine ou déplacer une séance.
+- **Minuteurs guidés** pour le renfo (maison ou salle, 4 niveaux) et pour le fractionné : annonces vocales,
+  bips, vibrations, écran maintenu allumé.
+- **Strava** : connexion, synchronisation automatique à l'ouverture, association des activités aux séances
+  (courses et séances de renfo), tracé du parcours, allure, fréquence cardiaque, dénivelé, temps au km.
+- **Journal** : toutes les activités, kilomètres par semaine, records, estimation du temps sur 10 km.
+- **Suivi** : poids (courbe et objectif), mensurations, eau et sommeil au quotidien avec historique.
+- **Conseils** : nutrition simple avant / pendant / après, perte de poids sans régime, sommeil, jour de course,
+  idées de repas.
+- **Récompenses** : paliers modifiables (distance, km cumulés, semaines d'affilée, séances, renfo, kg perdus),
+  célébration au déblocage.
+- **Calendrier Apple** : export `.ics` des séances et des pesées, avec rappels.
+- Thème clair / sombre / automatique, fonctionne hors connexion, sauvegarde et restauration des données.
+
+## Strava
+
+L'app parle directement à l'API Strava depuis le téléphone : aucun serveur n'est nécessaire.
+Chaque utilisatrice ou utilisateur crée sa propre application API gratuite sur https://www.strava.com/settings/api
+(domaine de rappel : `c-lord-creator.github.io`) et colle son ID client et son secret dans l'app
+(Réglages → Strava). Le secret reste sur le téléphone et n'est jamais inclus dans les sauvegardes.
 
 ## Lancer en local
 
@@ -22,13 +37,4 @@ python3 -m http.server 8000
 # puis ouvrir http://localhost:8000
 ```
 
-## Installer sur iPhone
-
-1. Publier le site (par exemple GitHub Pages : Settings → Pages → branche `main`, dossier `/`).
-2. Ouvrir l'adresse dans **Safari** → bouton Partager → **Sur l'écran d'accueil**.
-3. Dans l'app : Réglages → **Ajouter au Calendrier** → **Tout ajouter**.
-
-## À venir
-
-- V2 : connexion Strava (les courses cochent automatiquement les séances).
-- V3 : sommeil, hydratation, conseils nutrition enrichis.
+Aucune dépendance ni étape de build : HTML, CSS et JavaScript (modules ES).

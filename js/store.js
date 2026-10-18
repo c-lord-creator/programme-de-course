@@ -1,8 +1,9 @@
 // Données de l'utilisatrice, enregistrées sur le téléphone (localStorage).
 
-import { PROGRAM, findSession } from './program.js';
+import { buildPlan, PLANS, TOTAL_WEEKS } from './program.js';
 
 const KEY = 'elan10k-v1';
+const VERSION = 2;
 
 export const DEFAULT_REWARDS = [
   { type: 'sessions', threshold: 1, label: 'Première séance', reward: 'Une nouvelle playlist de course 🎧' },
@@ -28,22 +29,45 @@ export const METRIC_INFO = {
   weeks: { label: 'Semaines validées d\'affilée', unit: 'sem.', icon: '🔥' },
   sessions: { label: 'Séances réalisées', unit: 'séances', icon: '✅' },
   renfo: { label: 'Séances de renfo', unit: 'séances', icon: '💪' },
+  weight: { label: 'Kilos perdus', unit: 'kg', icon: '⚖️' },
 };
 
-function uid() {
+export const RUN_SPORTS = ['Run', 'TrailRun', 'VirtualRun'];
+export const RENFO_SPORTS = ['WeightTraining', 'Workout', 'Crossfit', 'HighIntensityIntervalTraining', 'Pilates', 'Yoga'];
+
+export function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
 
 function blankState() {
   return {
-    version: 1,
+    version: VERSION,
     profile: null,
-    logs: {},
+    cycle: null, // { id, planId, startDate }
+    pastCycles: [],
+    logs: {}, // "c1:w3-s2" -> { date, distanceKm, durationMin, feeling, note, activityId? }
+    moves: {}, // "c1:w3-s2" -> date choisie à la place de la date prévue
     extraRuns: [],
+    activities: {}, // activités Strava par id
+    strava: null,
     weights: [],
     measures: [],
+    daily: {}, // "2026-10-18" -> { water, sleep }
     rewards: DEFAULT_REWARDS.map((r) => ({ id: uid(), ...r, unlockedAt: null, claimed: false })),
   };
+}
+
+function migrate(data) {
+  const s = { ...blankState(), ...data };
+  // Version 1 : pas de cycles, date de début dans le profil, séances "w1-s1".
+  if (s.profile && !s.cycle) {
+    s.cycle = { id: 'c1', planId: 'premier10', startDate: s.profile.startDate };
+    const logs = {};
+    for (const [k, v] of Object.entries(s.logs)) logs[k.includes(':') ? k : `c1:${k}`] = v;
+    s.logs = logs;
+  }
+  s.version = VERSION;
+  return s;
 }
 
 let state = load();
@@ -51,7 +75,7 @@ let state = load();
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return { ...blankState(), ...JSON.parse(raw) };
+    if (raw) return migrate(JSON.parse(raw));
   } catch (e) {
     console.warn('Lecture impossible', e);
   }
@@ -71,7 +95,9 @@ export function getState() {
 }
 
 export function replaceState(next) {
-  state = { ...blankState(), ...next };
+  const keepStrava = state.strava;
+  state = migrate(next);
+  if (!state.strava) state.strava = keepStrava;
   save();
 }
 
@@ -79,8 +105,6 @@ export function resetState() {
   state = blankState();
   save();
 }
-
-export { uid };
 
 // --- Dates ---------------------------------------------------------------------
 
@@ -106,6 +130,10 @@ export function addDays(date, n) {
   return d;
 }
 
+export function daysBetween(a, b) {
+  return Math.round((parseDate(b) - parseDate(a)) / 86400000);
+}
+
 // Jour ISO : 1 = lundi … 7 = dimanche
 export function isoWeekday(date) {
   return ((date.getDay() + 6) % 7) + 1;
@@ -125,43 +153,104 @@ export function formatShort(iso) {
   return parseDate(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 }
 
-export function weekStart(week) {
-  return addDays(parseDate(state.profile.startDate), (week - 1) * 7);
+// --- Programme et cycles -----------------------------------------------------------
+
+function findCycle(id) {
+  if (state.cycle?.id === id) return state.cycle;
+  return state.pastCycles.find((c) => c.id === id) || null;
+}
+
+function withIds(cycle, week) {
+  return { ...week, sessions: week.sessions.map((s) => ({ ...s, id: `${cycle.id}:${s.key}`, cycleId: cycle.id })) };
+}
+
+// Semaines du programme en cours, avec les identifiants de séance du cycle.
+export function program(cycle = state.cycle) {
+  return buildPlan(cycle.planId).map((w) => withIds(cycle, w));
+}
+
+export function planOf(cycle = state.cycle) {
+  return PLANS[cycle.planId];
+}
+
+export function findSession(id) {
+  const [cycleId, key] = id.split(':');
+  const cycle = findCycle(cycleId);
+  if (!cycle) return null;
+  for (const w of buildPlan(cycle.planId)) {
+    const s = w.sessions.find((x) => x.key === key);
+    if (s) return { ...s, id, cycleId };
+  }
+  return null;
+}
+
+export function weekStart(week, cycle = state.cycle) {
+  return addDays(parseDate(cycle.startDate), (week - 1) * 7);
+}
+
+export function plannedDate(session) {
+  const cycle = findCycle(session.cycleId);
+  const days = [...state.profile.days].sort((a, b) => a - b);
+  return toISO(addDays(weekStart(session.week, cycle), days[session.slot] - 1));
 }
 
 export function sessionDate(session) {
-  const days = [...state.profile.days].sort((a, b) => a - b);
-  return toISO(addDays(weekStart(session.week), days[session.slot] - 1));
+  return state.moves[session.id] || plannedDate(session);
 }
 
 export function currentWeek() {
-  if (!state.profile) return 1;
-  const diff = Math.floor((parseDate(todayISO()) - parseDate(state.profile.startDate)) / 86400000);
-  return Math.min(Math.max(Math.floor(diff / 7) + 1, 1), PROGRAM.length);
+  if (!state.cycle) return 1;
+  const diff = daysBetween(state.cycle.startDate, todayISO());
+  return Math.min(Math.max(Math.floor(diff / 7) + 1, 1), TOTAL_WEEKS);
 }
 
 export function programStarted() {
-  return state.profile && todayISO() >= state.profile.startDate;
+  return state.cycle && todayISO() >= state.cycle.startDate;
 }
 
-// --- Calculs ---------------------------------------------------------------------
+export function programFinished() {
+  return state.cycle && daysBetween(state.cycle.startDate, todayISO()) >= TOTAL_WEEKS * 7;
+}
+
+export function startNewCycle(planId, startDate) {
+  if (state.cycle) state.pastCycles.push({ ...state.cycle, endedAt: todayISO() });
+  const n = [state.cycle, ...state.pastCycles].filter(Boolean).length + 1;
+  state.cycle = { id: `c${n}`, planId, startDate };
+  // Les paliers de régularité repartent pour le nouveau cycle.
+  for (const r of state.rewards) {
+    if (r.type === 'weeks') { r.unlockedAt = null; r.claimed = false; }
+  }
+  save();
+}
+
+// --- Courses et calculs -------------------------------------------------------------
 
 export function isRun(session) {
   return session.type !== 'renfo';
 }
 
+// Toutes les courses : séances du programme, courses ajoutées à la main et activités Strava non associées.
 export function allRuns() {
   const runs = [];
   for (const [id, log] of Object.entries(state.logs)) {
     const s = findSession(id);
-    if (s && isRun(s) && log.distanceKm) runs.push({ date: log.date, distanceKm: log.distanceKm });
+    if (s && isRun(s) && log.distanceKm) {
+      runs.push({ kind: 'session', id, date: log.date, distanceKm: log.distanceKm, durationMin: log.durationMin, title: s.title, activityId: log.activityId });
+    }
   }
-  for (const r of state.extraRuns) runs.push({ date: r.date, distanceKm: r.distanceKm });
-  return runs;
+  for (const r of state.extraRuns) {
+    runs.push({ kind: 'extra', id: r.id, date: r.date, distanceKm: r.distanceKm, durationMin: r.durationMin, title: r.note || 'Course libre' });
+  }
+  for (const a of Object.values(state.activities)) {
+    if (!a.linkedTo && !a.ignored && RUN_SPORTS.includes(a.sportType)) {
+      runs.push({ kind: 'activity', id: a.id, date: a.date, distanceKm: a.distanceKm, durationMin: a.movingMin, title: a.name, activityId: a.id });
+    }
+  }
+  return runs.sort((a, b) => b.date.localeCompare(a.date));
 }
 
 export function weekDoneCount(week) {
-  return PROGRAM[week - 1].sessions.filter((s) => state.logs[s.id]).length;
+  return program()[week - 1].sessions.filter((s) => state.logs[s.id]).length;
 }
 
 // Une semaine est validée avec au moins 3 séances sur 4.
@@ -174,7 +263,7 @@ export function weekValidated(week) {
 // Série en cours : semaines validées d'affilée jusqu'à aujourd'hui.
 // La semaine en cours ne casse pas la série tant qu'elle n'est pas terminée.
 export function currentStreak() {
-  if (!state.profile) return 0;
+  if (!state.cycle || !programStarted()) return 0;
   const cw = currentWeek();
   let streak = 0;
   let w = weekValidated(cw) ? cw : cw - 1;
@@ -188,22 +277,36 @@ export function currentStreak() {
 export function bestStreak() {
   let best = 0;
   let run = 0;
-  for (let w = 1; w <= PROGRAM.length; w++) {
+  for (let w = 1; w <= TOTAL_WEEKS; w++) {
     run = weekValidated(w) ? run + 1 : 0;
     best = Math.max(best, run);
   }
   return best;
 }
 
+export function latestWeight() {
+  const sorted = [...state.weights].sort((a, b) => a.date.localeCompare(b.date));
+  return sorted[sorted.length - 1] || null;
+}
+
+export function startWeight() {
+  if (state.profile?.startWeight) return state.profile.startWeight;
+  const sorted = [...state.weights].sort((a, b) => a.date.localeCompare(b.date));
+  return sorted[0]?.kg ?? null;
+}
+
 export function metrics() {
   const runs = allRuns();
   const ids = Object.keys(state.logs);
+  const last = latestWeight();
+  const start = startWeight();
   return {
     longest: runs.reduce((m, r) => Math.max(m, r.distanceKm), 0),
     total: runs.reduce((m, r) => m + r.distanceKm, 0),
-    weeks: bestStreak(),
-    sessions: ids.length + state.extraRuns.length,
+    weeks: state.cycle ? bestStreak() : 0,
+    sessions: ids.length + runs.filter((r) => r.kind !== 'session').length,
     renfo: ids.filter((id) => findSession(id)?.type === 'renfo').length,
+    weight: start && last ? Math.max(start - last.kg, 0) : 0,
   };
 }
 
@@ -212,8 +315,7 @@ export function refreshRewards() {
   const m = metrics();
   const fresh = [];
   for (const r of state.rewards) {
-    const reached = m[r.type] >= r.threshold;
-    if (reached && !r.unlockedAt) {
+    if (m[r.type] >= r.threshold && !r.unlockedAt) {
       r.unlockedAt = todayISO();
       fresh.push(r);
     }
@@ -222,25 +324,41 @@ export function refreshRewards() {
   return fresh;
 }
 
-export function sortedRewards() {
-  return [...state.rewards].sort((a, b) => progressOf(b) - progressOf(a) || a.threshold - b.threshold);
-}
-
-export function progressOf(reward) {
-  const m = metrics();
+export function progressOf(reward, m = metrics()) {
   return Math.min(m[reward.type] / reward.threshold, 1);
 }
 
-export function latestWeight() {
-  const sorted = [...state.weights].sort((a, b) => a.date.localeCompare(b.date));
-  return sorted[sorted.length - 1] || null;
+export function sortedRewards() {
+  const m = metrics();
+  return [...state.rewards].sort((a, b) => progressOf(b, m) - progressOf(a, m) || a.threshold - b.threshold);
 }
 
 export function nextSession() {
-  for (const w of PROGRAM) {
+  for (const w of program()) {
     for (const s of w.sessions) {
       if (!state.logs[s.id] && sessionDate(s) >= todayISO()) return s;
     }
   }
   return null;
+}
+
+// Estimation du temps sur 10 km (formule de Riegel) à partir de la meilleure course récente de 3 km ou plus.
+export function predict10k() {
+  const since = toISO(addDays(new Date(), -56));
+  let best = null;
+  for (const r of allRuns()) {
+    if (r.date < since || r.distanceKm < 3 || !r.durationMin) continue;
+    const t10 = r.durationMin * (10 / r.distanceKm) ** 1.06;
+    if (!best || t10 < best.minutes) best = { minutes: t10, from: r };
+  }
+  return best;
+}
+
+export function daily(date = todayISO()) {
+  return state.daily[date] || { water: 0, sleep: null };
+}
+
+export function setDaily(date, patch) {
+  state.daily[date] = { ...daily(date), ...patch };
+  save();
 }
